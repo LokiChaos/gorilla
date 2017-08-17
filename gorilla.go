@@ -9,10 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"time"
 )
-
-const dirPath = "/tmp/"
 
 var (
 	confSslRegex = regexp.MustCompile(`(root|ssl_certificate|ssl_certificate_key|ssl_session_ticket_key|ssl_dhparam|ssl_trusted_certificate)\s+([a-z0-9_\-\.\/]+?);`)
@@ -33,8 +32,13 @@ type ngxSiteConf struct {
 
 func main() {
 
-	list := ListFiles("/home/mauro/Downloads/SSL")
-	runCheck(list)
+	if _, err := os.Stat("/etc/nginx/sites-enabled/"); os.IsNotExist(err) {
+		logf("%s conf: %v", "/etc/nginx/sites-enabled/", err)
+	} else {
+		list := ListFiles("/etc/nginx/sites-enabled/")
+		runCheck(list)
+	}
+
 }
 
 func runCheck(domainConfPaths []string) {
@@ -61,10 +65,12 @@ func runCheck(domainConfPaths []string) {
 			}
 
 			days := int(c.NotAfter.Sub(time.Now()).Hours() / 24)
-
-			if days > 15 {
+			println(days)
+			if days > 100 {
 				logf("%s %d days valid, skip.", filepath.Base(cert.fullchain), days)
 				continue
+			} else {
+				WriteToFile("/tmp/test.lock", "Domain: "+filepath.Base(cert.fullchain)+" is going to expire in: "+strconv.Itoa(days))
 			}
 
 		}
@@ -173,4 +179,27 @@ func errorf(format string, args ...interface{}) {
 
 func fatalf(format string, args ...interface{}) {
 	errorf(format, args...)
+}
+
+// WriteToFile create a file and writes a specified msg to it
+func WriteToFile(filePath string, msg string) {
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		_, err := os.Create(filePath)
+		if err != nil {
+			log.Fatal("Cannot create file", err)
+		}
+	}
+
+	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		panic(err)
+	}
+
+	defer file.Close()
+
+	if _, err = file.WriteString(msg); err != nil {
+		panic(err)
+	}
+
 }
