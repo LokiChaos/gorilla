@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	confSslRegex = regexp.MustCompile(`(root|ssl_certificate|ssl_certificate_key|ssl_session_ticket_key|ssl_dhparam|ssl_trusted_certificate)\s+([a-z0-9_\-\.\/]+?);`)
+	confSslRegex = regexp.MustCompile(`(root|ssl_certificate|ssl_certificate_key|ssl_session_ticket_key|ssl_dhparam|ssl_trusted_certificate|SSLCertificateFile)\s+([a-z0-9_\-\.\/]+?);`)
 )
 
 type ngxCertificate struct {
@@ -30,15 +30,32 @@ type ngxSiteConf struct {
 	DomainPublicDir       string
 }
 
+// LockFile location
+var LockFile = "/tmp/test.lock"
+
+//DaysExpiration to alert
+var DaysExpiration = 100000
+
 func main() {
 
-	if _, err := os.Stat("/etc/nginx/sites-enabled/"); os.IsNotExist(err) {
-		logf("%s conf: %v", "/etc/nginx/sites-enabled/", err)
+	nginxLocation := "/etc/nginx/sites-enabled/"
+	apacheLocation := "/etc/apache2/sites-enabled"
+
+	// Nginx
+	if _, err := os.Stat(nginxLocation); os.IsNotExist(err) {
+		logf("%s conf: %v", nginxLocation, err)
 	} else {
-		list := ListFiles("/etc/nginx/sites-enabled/")
+		list := ListFiles(nginxLocation)
 		runCheck(list)
 	}
 
+	// Apache
+	if _, err := os.Stat(apacheLocation); os.IsNotExist(err) {
+		logf("%s conf: %v", apacheLocation, err)
+	} else {
+		list := ListFiles(apacheLocation)
+		runCheck(list)
+	}
 }
 
 func runCheck(domainConfPaths []string) {
@@ -65,12 +82,12 @@ func runCheck(domainConfPaths []string) {
 			}
 
 			days := int(c.NotAfter.Sub(time.Now()).Hours() / 24)
-			println(days)
-			if days > 100 {
+
+			if days > DaysExpiration {
 				logf("%s %d days valid, skip.", filepath.Base(cert.fullchain), days)
 				continue
 			} else {
-				WriteToFile("/tmp/test.lock", "Domain: "+filepath.Base(cert.fullchain)+" is going to expire in: "+strconv.Itoa(days))
+				WriteToFile(LockFile, "\nDomain: "+filepath.Base(cert.fullchain)+" is going to expire in: "+strconv.Itoa(days))
 			}
 
 		}
@@ -144,7 +161,27 @@ func parseSiteConf(confFilename string) (*ngxSiteConf, error) {
 					conf.Certificates = append(conf.Certificates, *cert)
 					cert = nil
 				}
+			case "SSLCertificateFile":
+				if cert == nil {
+					cert = &ngxCertificate{
+						fullchain: value,
+					}
+				} else {
+					cert.fullchain = value
+					conf.Certificates = append(conf.Certificates, *cert)
+					cert = nil
+				}
 			case "ssl_certificate_key":
+				if cert == nil {
+					cert = &ngxCertificate{
+						privkey: value,
+					}
+				} else {
+					cert.privkey = value
+					conf.Certificates = append(conf.Certificates, *cert)
+					cert = nil
+				}
+			case "SSLCertificateKeyFile":
 				if cert == nil {
 					cert = &ngxCertificate{
 						privkey: value,
