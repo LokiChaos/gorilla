@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -13,28 +14,13 @@ import (
 	"time"
 )
 
-var (
-	confSslRegex = regexp.MustCompile(`(root|ssl_certificate|ssl_certificate_key|ssl_session_ticket_key|ssl_dhparam|ssl_trusted_certificate|SSLCertificateFile)\s+([a-z0-9_\-\.\/]+?);`)
-)
-
-type ngxCertificate struct {
-	privkey   string
-	fullchain string
-}
-
-type ngxSiteConf struct {
-	Certificates          []ngxCertificate
-	SslSessionTicketKey   string
-	SslDHParam            string
-	SslTrustedCertificate string
-	DomainPublicDir       string
-}
-
 // LockFile location
 var LockFile = "/tmp/test.lock"
 
 //DaysExpiration to alert
 var DaysExpiration = 100000
+
+var logf = log.Printf
 
 func main() {
 
@@ -67,15 +53,15 @@ func runCheck(domainConfPaths []string) {
 			continue
 		}
 
-		conf, err := parseSiteConf(domain)
+		conf, err := certificates(domain)
 
 		if err != nil {
 			fatalf("%s conf: %v", domain, err)
 		}
 
-		for _, cert := range conf.Certificates {
+		for _, cert := range conf {
 
-			c, err := parseCertificate(cert.fullchain)
+			c, err := parseCertificate(cert)
 
 			if err != nil {
 				fatalf("%s cert: %v", domain, err)
@@ -84,10 +70,10 @@ func runCheck(domainConfPaths []string) {
 			days := int(c.NotAfter.Sub(time.Now()).Hours() / 24)
 
 			if days > DaysExpiration {
-				logf("%s %d days valid, skip.", filepath.Base(cert.fullchain), days)
+				logf("%s %d days valid, skip.", filepath.Base(cert), days)
 				continue
 			} else {
-				WriteToFile(LockFile, "\nDomain: "+filepath.Base(cert.fullchain)+" is going to expire in: "+strconv.Itoa(days))
+				WriteToFile(LockFile, "\nDomain: "+filepath.Base(cert)+" is going to expire in: "+strconv.Itoa(days))
 			}
 
 		}
@@ -133,89 +119,32 @@ func parseCertificate(path string) (*x509.Certificate, error) {
 	return cert, nil
 }
 
-func parseSiteConf(confFilename string) (*ngxSiteConf, error) {
-	text, err := ioutil.ReadFile(confFilename)
+func certificates(filename string) ([]string, error) {
+	var r []string
+	confSslRegex := regexp.MustCompile("(SSLCertificateFile|ssl_certificate)\\s+([^;]+)\\s*;?\\s*$")
 
+	fh, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
+	defer fh.Close()
 
-	matches := confSslRegex.FindAllStringSubmatch(string(text), -1)
-
-	var conf = &ngxSiteConf{}
-	var cert *ngxCertificate
-
-	for _, match := range matches {
-
+	scanner := bufio.NewScanner(fh)
+	var match []string
+	var line string
+	for scanner.Scan() {
+		line = scanner.Text()
+		match = confSslRegex.FindStringSubmatch(line)
 		if len(match) == 3 {
-			key, value := match[1], match[2]
-
-			switch key {
-			case "ssl_certificate":
-				if cert == nil {
-					cert = &ngxCertificate{
-						fullchain: value,
-					}
-				} else {
-					cert.fullchain = value
-					conf.Certificates = append(conf.Certificates, *cert)
-					cert = nil
-				}
-			case "SSLCertificateFile":
-				if cert == nil {
-					cert = &ngxCertificate{
-						fullchain: value,
-					}
-				} else {
-					cert.fullchain = value
-					conf.Certificates = append(conf.Certificates, *cert)
-					cert = nil
-				}
-			case "ssl_certificate_key":
-				if cert == nil {
-					cert = &ngxCertificate{
-						privkey: value,
-					}
-				} else {
-					cert.privkey = value
-					conf.Certificates = append(conf.Certificates, *cert)
-					cert = nil
-				}
-			case "SSLCertificateKeyFile":
-				if cert == nil {
-					cert = &ngxCertificate{
-						privkey: value,
-					}
-				} else {
-					cert.privkey = value
-					conf.Certificates = append(conf.Certificates, *cert)
-					cert = nil
-				}
-			case "ssl_session_ticket_key":
-				conf.SslSessionTicketKey = value
-			case "ssl_dhparam":
-				conf.SslDHParam = value
-			case "ssl_trusted_certificate":
-				conf.SslTrustedCertificate = value
-			case "root":
-				if conf.DomainPublicDir == "" {
-					conf.DomainPublicDir = value
-				}
-			}
+			r = append(r, match[2])
 		}
-
 	}
-	return conf, nil
-}
 
-var logf = log.Printf
-
-func errorf(format string, args ...interface{}) {
-	logf(format, args...)
-}
-
-func fatalf(format string, args ...interface{}) {
-	errorf(format, args...)
+	err = scanner.Err()
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
 // WriteToFile create a file and writes a specified msg to it
@@ -239,4 +168,12 @@ func WriteToFile(filePath string, msg string) {
 		panic(err)
 	}
 
+}
+
+func errorf(format string, args ...interface{}) {
+	logf(format, args...)
+}
+
+func fatalf(format string, args ...interface{}) {
+	errorf(format, args...)
 }

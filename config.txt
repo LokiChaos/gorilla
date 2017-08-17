@@ -1,0 +1,10 @@
+[profile manager]
+key=value
+password = sjssh31mmv
+; a comment
+port = 8080
+ip = 123.456.789.321
+# another comment
+url=example.com
+file=
+# last comment
