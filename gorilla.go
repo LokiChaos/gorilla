@@ -15,14 +15,16 @@ import (
 )
 
 // LockFile location
-var LockFile = "/tmp/test.lock"
+var LockFile = "/etc/certificates.lock"
 
 //DaysExpiration to alert
-var DaysExpiration = 100000
+var DaysExpiration = 15
 
 var logf = log.Printf
 
 func main() {
+
+	//it can be improved to find the this paths dynamically
 
 	nginxLocation := "/etc/nginx/sites-enabled/"
 	apacheLocation := "/etc/apache2/sites-enabled"
