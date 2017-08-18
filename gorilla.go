@@ -27,7 +27,7 @@ var validation = 0
 func main() {
 
 	havecerts := false
-	checkingDirs := []string{"/etc/nginx/sites-enabled", "/etc/apache2/sites-enabled", "/etc/nginx/vhost.d", "/etc/apache2/vhost.d"}
+	checkingDirs := []string{"/etc/nginx/sites-enabled", "/etc/apache2/sites-enabled", "/etc/nginx/vhosts.d", "/etc/apache2/vhosts.d"}
 
 	for _, dir := range checkingDirs {
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -186,4 +186,3 @@ func errorf(format string, args ...interface{}) {
 func fatalf(format string, args ...interface{}) {
 	errorf(format, args...)
 }
-
