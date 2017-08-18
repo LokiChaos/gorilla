@@ -56,7 +56,7 @@ func main() {
 	}
 
 	if validation > 0 {
-		println("WARNING - " + strconv.Itoa(validation) + " certs need to be update, please check: " + LockFile)
+		println("WARNING - " + strconv.Itoa(validation) + " certs need to be updated, please check: " + LockFile)
 		os.Exit(1)
 	} else {
 		println("OK - All certs are updated.")
