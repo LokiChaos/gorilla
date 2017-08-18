@@ -23,5 +23,5 @@ exit status 1
 Just add to the array the directories you want to check
 
 ```
-checkingDirs := []string{"/etc/nginx/sites-enabled", "/etc/apache2/sites-enabled", "/etc/nginx/vhost.d", "/etc/apache2/vhost.d"}
+checkingDirs := []string{"/etc/nginx/sites-enabled", "/etc/apache2/sites-enabled", "/etc/nginx/vhosts.d", "/etc/apache2/vhosts.d"}
 ```
