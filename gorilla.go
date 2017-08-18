@@ -130,7 +130,7 @@ func parseCertificate(path string) (*x509.Certificate, error) {
 
 func certificates(filename string) ([]string, error) {
 	var r []string
-	confSslRegex := regexp.MustCompile("(SSLCertificateFile|ssl_certificate)\\s+([^;]+)\\s*;?\\s*$")
+	confSslRegex := regexp.MustCompile("^/(!#)(SSLCertificateFile|ssl_certificate)\\s+([^;]+)\\s*;?\\s*$")
 
 	fh, err := os.Open(filename)
 	if err != nil {
