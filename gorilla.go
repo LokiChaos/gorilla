@@ -28,23 +28,31 @@ func main() {
 
 	//it can be improved to find the this paths dynamically
 
-	nginxLocation := "/etc/nginx/sites-enabled/"
+	nginxLocation := "/etc/nginx/sites-enabled"
 	apacheLocation := "/etc/apache2/sites-enabled"
+
+	havecerts := false
 
 	// Nginx
 	if _, err := os.Stat(nginxLocation); os.IsNotExist(err) {
-		logf("%s conf: %v", nginxLocation, err)
+		//logf("%s conf: %v", nginxLocation, err)
 	} else {
+		havecerts = true
 		list := ListFiles(nginxLocation)
 		runCheck(list)
 	}
 
 	// Apache
 	if _, err := os.Stat(apacheLocation); os.IsNotExist(err) {
-		logf("%s conf: %v", apacheLocation, err)
+		//logf("%s conf: %v", apacheLocation, err)
 	} else {
+		havecerts = true
 		list := ListFiles(apacheLocation)
 		runCheck(list)
+	}
+
+	if !havecerts {
+		os.Exit(0)
 	}
 
 	if validation > 0 {
@@ -86,7 +94,7 @@ func runCheck(domainConfPaths []string) {
 				continue
 			} else {
 				validation++
-				WriteToFile(LockFile, "\nDomain: "+filepath.Base(cert)+" is going to expire in: "+strconv.Itoa(days))
+				WriteToFile(LockFile, "\nDomain: "+filepath.Base(cert)+" is going to expire in: "+strconv.Itoa(days)+" days.\n")
 			}
 
 		}
