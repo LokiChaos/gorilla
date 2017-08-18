@@ -17,7 +17,7 @@ import (
 // LockFile location
 var LockFile = "/etc/certificates.lock"
 
-//DaysExpiration to alert
+//DaysExpiration limit of days before alert
 var DaysExpiration = 15
 
 var logf = log.Printf
