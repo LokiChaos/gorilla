@@ -22,6 +22,8 @@ var DaysExpiration = 15
 
 var logf = log.Printf
 
+var validation = 0
+
 func main() {
 
 	//it can be improved to find the this paths dynamically
@@ -43,6 +45,14 @@ func main() {
 	} else {
 		list := ListFiles(apacheLocation)
 		runCheck(list)
+	}
+
+	if validation > 0 {
+		println("WARNING - " + strconv.Itoa(validation) + " certs need to be update, please check: " + LockFile)
+		os.Exit(1)
+	} else {
+		println("OK - All certs are updated.")
+		os.Exit(0)
 	}
 }
 
@@ -72,9 +82,10 @@ func runCheck(domainConfPaths []string) {
 			days := int(c.NotAfter.Sub(time.Now()).Hours() / 24)
 
 			if days > DaysExpiration {
-				logf("%s %d days valid, skip.", filepath.Base(cert), days)
+				//logf("%s %d days valid, skip.", filepath.Base(cert), days)
 				continue
 			} else {
+				validation++
 				WriteToFile(LockFile, "\nDomain: "+filepath.Base(cert)+" is going to expire in: "+strconv.Itoa(days))
 			}
 
