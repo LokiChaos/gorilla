@@ -18,7 +18,7 @@ import (
 var LockFile = "/etc/certificates.lock"
 
 //DaysExpiration limit of days before alert
-var DaysExpiration = 15
+var DaysExpiration = 5000
 
 var logf = log.Printf
 
@@ -44,7 +44,7 @@ func main() {
 	}
 
 	if validation > 0 {
-		println("WARNING - " + strconv.Itoa(validation) + " certs need to be updated, please check: " + LockFile)
+		println("WARNING - " + strconv.Itoa(validation) + " cert need to be updated, please check: " + LockFile)
 		os.Exit(1)
 	} else {
 		println("OK - All certs are updated.")
@@ -130,7 +130,8 @@ func parseCertificate(path string) (*x509.Certificate, error) {
 
 func certificates(filename string) ([]string, error) {
 	var r []string
-	confSslRegex := regexp.MustCompile("^/(!#)(SSLCertificateFile|ssl_certificate)\\s+([^;]+)\\s*;?\\s*$")
+
+	confSslRegex := regexp.MustCompile("(SSLCertificateFile|ssl_certificate)\\s+([^;]+)\\s*;?\\s*$")
 
 	fh, err := os.Open(filename)
 	if err != nil {
@@ -145,7 +146,9 @@ func certificates(filename string) ([]string, error) {
 		line = scanner.Text()
 		match = confSslRegex.FindStringSubmatch(line)
 		if len(match) == 3 {
-			r = append(r, match[2])
+			if _, err := os.Stat(match[2]); !os.IsNotExist(err) {
+				r = append(r, match[2])
+			}
 		}
 	}
 
@@ -153,6 +156,7 @@ func certificates(filename string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return r, nil
 }
 
@@ -160,6 +164,12 @@ func certificates(filename string) ([]string, error) {
 func WriteToFile(filePath string, msg string) {
 
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		_, err := os.Create(filePath)
+		if err != nil {
+			log.Fatal("Cannot create file", err)
+		}
+	} else {
+		err = os.Remove(filePath)
 		_, err := os.Create(filePath)
 		if err != nil {
 			log.Fatal("Cannot create file", err)
