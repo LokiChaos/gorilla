@@ -26,29 +26,17 @@ var validation = 0
 
 func main() {
 
-	//it can be improved to find the this paths dynamically
-
-	nginxLocation := "/etc/nginx/sites-enabled"
-	apacheLocation := "/etc/apache2/sites-enabled"
-
 	havecerts := false
+	checkingDirs := []string{"/etc/nginx/sites-enabled", "/etc/apache2/sites-enabled", "/etc/nginx/vhost.d", "/etc/apache2/vhost.d"}
 
-	// Nginx
-	if _, err := os.Stat(nginxLocation); os.IsNotExist(err) {
-		//logf("%s conf: %v", nginxLocation, err)
-	} else {
-		havecerts = true
-		list := ListFiles(nginxLocation)
-		runCheck(list)
-	}
-
-	// Apache
-	if _, err := os.Stat(apacheLocation); os.IsNotExist(err) {
-		//logf("%s conf: %v", apacheLocation, err)
-	} else {
-		havecerts = true
-		list := ListFiles(apacheLocation)
-		runCheck(list)
+	for _, dir := range checkingDirs {
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			//logf("%s conf: %v", dir, err)
+		} else {
+			havecerts = true
+			list := ListFiles(dir)
+			runCheck(list)
+		}
 	}
 
 	if !havecerts {
@@ -198,3 +186,4 @@ func errorf(format string, args ...interface{}) {
 func fatalf(format string, args ...interface{}) {
 	errorf(format, args...)
 }
+
