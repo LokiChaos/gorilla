@@ -42,6 +42,7 @@ func main() {
 
 	havecerts := false
 	checkingDirs := []string{"/etc/nginx/sites-enabled", "/etc/apache2/sites-enabled", "/etc/nginx/vhosts.d", "/etc/apache2/vhosts.d"}
+	os.Remove(LockFile)
 
 	for _, dir := range checkingDirs {
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -58,6 +59,7 @@ func main() {
 
 	if !havecerts {
 		log.WithFields(log.Fields{}).Info("Any cert found.")
+		fmt.Println("OK - Any cert found.")
 		defer os.Exit(0)
 	}
 
@@ -66,7 +68,7 @@ func main() {
 		defer os.Exit(1)
 	} else {
 		fmt.Println("OK - Checked, all certs are updated.")
-		defer os.Exit(1)
+		defer os.Exit(0)
 	}
 }
 
@@ -204,15 +206,6 @@ func certificates(filename string) ([]string, error) {
 func WriteToFile(filePath string, msg string) {
 
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		_, err := os.Create(filePath)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"filePath": filePath,
-				"err":      err,
-			}).Warn("Cannot create file")
-		}
-	} else {
-		err = os.Remove(filePath)
 		_, err := os.Create(filePath)
 		if err != nil {
 			log.WithFields(log.Fields{
