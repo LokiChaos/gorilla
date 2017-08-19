@@ -6,23 +6,37 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"syscall"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
-// LockFile location
-var LockFile = "/etc/certificates.lock"
+var (
+	// LockFile saves the domains that needs to be updated
+	LockFile = "/etc/certificates.lock"
+	// DaysExpiration limit of days before alert
+	DaysExpiration = 15
+	// validation is the number of certs to be updated
+	validation = 0
+)
 
-//DaysExpiration limit of days before alert
-var DaysExpiration = 5000
+func init() {
+	// Log as JSON instead of the default ASCII formatter.
+	log.SetFormatter(&log.JSONFormatter{})
 
-var logf = log.Printf
+	// Output to stdout instead of the default stderr
+	// Can be any io.Writer, see below for File example
+	log.SetOutput(os.Stdout)
 
-var validation = 0
+	// Only log the warning severity or above.
+	log.SetLevel(log.WarnLevel)
+}
 
 func main() {
 
@@ -31,7 +45,10 @@ func main() {
 
 	for _, dir := range checkingDirs {
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			//logf("%s conf: %v", dir, err)
+			log.WithFields(log.Fields{
+				"conf": dir,
+				"err":  err,
+			}).Info("Conf does not exit")
 		} else {
 			havecerts = true
 			list := ListFiles(dir)
@@ -40,16 +57,21 @@ func main() {
 	}
 
 	if !havecerts {
-		os.Exit(0)
+		log.WithFields(log.Fields{}).Info("Any cert found.")
+		defer os.Exit(0)
 	}
 
 	if validation > 0 {
-		println("WARNING - " + strconv.Itoa(validation) + " cert need to be updated, please check: " + LockFile)
-		os.Exit(1)
+		fmt.Println("WARNING - Checked " + strconv.Itoa(validation) + " cert that need to be updated, please check for more details " + LockFile)
+		defer os.Exit(1)
 	} else {
-		println("OK - All certs are updated.")
-		os.Exit(0)
+		fmt.Println("OK - Checked, all certs are updated.")
+		defer os.Exit(1)
 	}
+}
+
+func exitCode(err *exec.ExitError) int {
+	return err.Sys().(syscall.WaitStatus).ExitStatus()
 }
 
 func runCheck(domainConfPaths []string) {
@@ -57,14 +79,20 @@ func runCheck(domainConfPaths []string) {
 	for _, domain := range domainConfPaths {
 
 		if _, err := os.Stat(domain); os.IsNotExist(err) {
-			logf("%s conf: %v", domain, err)
+			log.WithFields(log.Fields{
+				"conf": domain,
+				"err":  err,
+			}).Info("Conf does not exit")
 			continue
 		}
 
 		conf, err := certificates(domain)
 
 		if err != nil {
-			fatalf("%s conf: %v", domain, err)
+			log.WithFields(log.Fields{
+				"conf": domain,
+				"err":  err,
+			}).Fatal("The ice breaks!")
 		}
 
 		for _, cert := range conf {
@@ -72,13 +100,22 @@ func runCheck(domainConfPaths []string) {
 			c, err := parseCertificate(cert)
 
 			if err != nil {
-				fatalf("%s cert: %v", domain, err)
+				if err != nil {
+					log.WithFields(log.Fields{
+						"conf": domain,
+						"err":  err,
+					}).Fatal("The ice breaks!")
+				}
 			}
 
 			days := int(c.NotAfter.Sub(time.Now()).Hours() / 24)
 
 			if days > DaysExpiration {
-				//logf("%s %d days valid, skip.", filepath.Base(cert), days)
+				log.WithFields(log.Fields{
+					"days":           days,
+					"DaysExpiration": DaysExpiration,
+					"cert":           cert,
+				}).Info("Valid cert, skip.")
 				continue
 			} else {
 				validation++
@@ -104,7 +141,10 @@ func ListFiles(rootpath string) []string {
 		return nil
 	})
 	if err != nil {
-		fmt.Printf("walk error [%v]\n", err)
+		log.WithFields(log.Fields{
+			"Path": rootpath,
+			"err":  err,
+		}).Warn("walk error")
 	}
 	return list
 }
@@ -166,13 +206,19 @@ func WriteToFile(filePath string, msg string) {
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		_, err := os.Create(filePath)
 		if err != nil {
-			log.Fatal("Cannot create file", err)
+			log.WithFields(log.Fields{
+				"filePath": filePath,
+				"err":      err,
+			}).Warn("Cannot create file")
 		}
 	} else {
 		err = os.Remove(filePath)
 		_, err := os.Create(filePath)
 		if err != nil {
-			log.Fatal("Cannot create file", err)
+			log.WithFields(log.Fields{
+				"filePath": filePath,
+				"err":      err,
+			}).Warn("Cannot create file")
 		}
 	}
 
@@ -187,12 +233,4 @@ func WriteToFile(filePath string, msg string) {
 		panic(err)
 	}
 
-}
-
-func errorf(format string, args ...interface{}) {
-	logf(format, args...)
-}
-
-func fatalf(format string, args ...interface{}) {
-	errorf(format, args...)
 }
