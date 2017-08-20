@@ -22,7 +22,7 @@ var (
 	// LockFile saves the domains that needs to be updated
 	LockFile = "/etc/certificates.lock"
 	// DaysExpiration limit of days before alert
-	DaysExpiration = 15
+	DaysExpiration = 500
 	// validation is the number of certs to be updated
 	validation = 0
 )
@@ -116,7 +116,12 @@ func runCheck(domainConfPaths []string) {
 				continue
 			} else {
 				validation++
-				WriteToFile(LockFile, "\nDomain: "+strings.Join(c.DNSNames, " ")+" is going to expire in: "+strconv.Itoa(days)+" days.\n")
+				if days < 0 {
+					WriteToFile(LockFile, "\nDomain: "+strings.Join(c.DNSNames, " ")+" expired: "+strconv.Itoa(days)+" days ago.\n")
+				} else {
+					WriteToFile(LockFile, "\nDomain: "+strings.Join(c.DNSNames, " ")+" is going to expire in: "+strconv.Itoa(days)+" days.\n")
+				}
+
 			}
 
 		}
