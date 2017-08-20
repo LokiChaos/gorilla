@@ -22,7 +22,7 @@ var (
 	// LockFile saves the domains that needs to be updated
 	LockFile = "/etc/certificates.lock"
 	// DaysExpiration limit of days before alert
-	DaysExpiration = 500
+	DaysExpiration = 15
 	// validation is the number of certs to be updated
 	validation = 0
 )
