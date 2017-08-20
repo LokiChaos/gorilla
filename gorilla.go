@@ -23,8 +23,8 @@ var (
 	LockFile = "/etc/certificates.lock"
 	// DaysExpiration limit of days before alert
 	DaysExpiration = 15
-	// validation is the number of certs to be updated
-	validation = 0
+	// Validation is the number of certs to be updated
+	Validation = 0
 )
 
 func init() {
@@ -58,8 +58,8 @@ func main() {
 		defer os.Exit(0)
 	}
 
-	if validation > 0 {
-		fmt.Println("WARNING - Checked " + strconv.Itoa(validation) + " cert that need to be updated, please check for more details " + LockFile)
+	if Validation > 0 {
+		fmt.Println("WARNING - Checked " + strconv.Itoa(Validation) + " cert that need to be updated, please check for more details " + LockFile)
 		defer os.Exit(1)
 	} else {
 		fmt.Println("OK - Checked, all certs are updated.")
@@ -115,7 +115,7 @@ func runCheck(domainConfPaths []string) {
 				}).Info("Valid cert, skip.")
 				continue
 			} else {
-				validation++
+				Validation++
 				var dnsvalid = strings.Join(c.DNSNames, " ")
 				if len(c.DNSNames) == 0 {
 					dnsvalid = "this file " + cert + " hasn't DNS field"
