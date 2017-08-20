@@ -116,10 +116,15 @@ func runCheck(domainConfPaths []string) {
 				continue
 			} else {
 				validation++
+				var dnsvalid = strings.Join(c.DNSNames, " ")
+				if len(c.DNSNames) == 0 {
+					dnsvalid = "this file " + cert + " hasn't DNS field"
+				}
+
 				if days < 0 {
-					WriteToFile(LockFile, "\nDomain: "+strings.Join(c.DNSNames, " ")+" expired: "+strconv.Itoa(days)+" days ago.\n")
+					WriteToFile(LockFile, "\nDomain: "+dnsvalid+" expired: "+strconv.Itoa(days)+" days ago.\n")
 				} else {
-					WriteToFile(LockFile, "\nDomain: "+strings.Join(c.DNSNames, " ")+" is going to expire in: "+strconv.Itoa(days)+" days.\n")
+					WriteToFile(LockFile, "\nDomain: "+dnsvalid+" is going to expire in: "+strconv.Itoa(days)+" days.\n")
 				}
 
 			}
