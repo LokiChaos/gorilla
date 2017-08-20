@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -110,12 +111,12 @@ func runCheck(domainConfPaths []string) {
 				log.WithFields(log.Fields{
 					"days":           days,
 					"DaysExpiration": DaysExpiration,
-					"cert":           cert,
+					"domain":         strings.Join(c.DNSNames, " "),
 				}).Info("Valid cert, skip.")
 				continue
 			} else {
 				validation++
-				WriteToFile(LockFile, "\nDomain: "+filepath.Base(cert)+" is going to expire in: "+strconv.Itoa(days)+" days.\n")
+				WriteToFile(LockFile, "\nDomain: "+strings.Join(c.DNSNames, " ")+" is going to expire in: "+strconv.Itoa(days)+" days.\n")
 			}
 
 		}
