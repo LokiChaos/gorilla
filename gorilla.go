@@ -118,7 +118,7 @@ func runCheck(domainConfPaths []string) {
 				Validation++
 				var dnsvalid = strings.Join(c.DNSNames, " ")
 				if len(c.DNSNames) == 0 {
-					dnsvalid = "this file " + cert + " hasn't DNS field"
+					dnsvalid = "this file " + cert + " haven't DNS field"
 				}
 
 				if days < 0 {
