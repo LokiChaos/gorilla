@@ -113,6 +113,7 @@ func runCheck(domainConfPaths []string, options Options) {
 				}
 			}
 
+			// Validation if the certificate was issued by LE
 			if options.Letsencrypt {
 				if !strings.Contains(c.Issuer.CommonName, "Let's Encrypt") {
 					printMessage("\nIssuer: "+c.Issuer.CommonName+" not support acme, skip "+domain, options.Verbosity, Error)
