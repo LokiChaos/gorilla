@@ -107,7 +107,7 @@ func runCheck(domainConfPaths []string, options Options) {
 			days := int(c.NotAfter.Sub(time.Now()).Hours() / 24)
 
 			if days > options.DaysExpiration {
-				//	printMessage("Valid cert, skip : "+strings.Join(c.DNSNames)+" - days: "+days, Options.Verbosity, Info)
+				printMessage("Valid cert, skip : "+strings.Join(c.DNSNames, " ")+" - days: "+strconv.Itoa(days), options.Verbosity, Info)
 				continue
 			} else {
 				Validation++
