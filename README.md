@@ -22,7 +22,9 @@ go run gorilla.go -help
   -daysexpiration int
     	Number of days before warning (default 15)
   -dirs string
-    	Directories be checked to find certs (default "/etc/nginx/sites-enabled,/etc/apache2/sites-enabled,/etc/nginx/vhosts.d,/etc/apache2/vhosts.d")
+   	Directories be checked to find certs (default "/etc/nginx/sites-enabled,/etc/apache2/sites-enabled,/etc/nginx/vhosts.d,/etc/apache2/vhosts.d")
+  -letsencrypt
+    	Check only if the certificate was issued by letsencrypt (default true)
   -lockfike string
     	Lock file location (default "/etc/certificates.lock")
   -verbosity int
