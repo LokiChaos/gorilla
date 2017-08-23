@@ -11,7 +11,7 @@ OK - All certs are updated.
 ```
 
 ```
-./gorilla -dirs "/var/apache2/vhosts" -daysexpiration 5
+./gorilla -dirs="/var/apache2/vhosts" -daysexpiration=5
 WARNING - Checked 1 cert that need to be updated, please check for more details /etc/certificates.lock
 ```
 
