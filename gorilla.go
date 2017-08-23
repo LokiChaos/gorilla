@@ -27,6 +27,10 @@ const (
 	// Info messages
 	Info = 1 << iota // a == 1 (iota has been reset)
 
+	Skip = 2 << iota
+
+	SkipDir = 3 << iota
+
 	// Warning Messages
 	Warning = 1 << iota // b == 2
 
@@ -53,7 +57,7 @@ func main() {
 
 	for _, dir := range checkingDirs {
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			printMessage("Directory: "+dir+" does not exist", options.Verbosity, Error)
+			printMessage("Skipping: "+dir, options.Verbosity, SkipDir)
 		} else {
 			havecerts = true
 			list := ListFiles(dir, *options)
@@ -107,7 +111,7 @@ func runCheck(domainConfPaths []string, options Options) {
 			days := int(c.NotAfter.Sub(time.Now()).Hours() / 24)
 
 			if days > options.DaysExpiration {
-				printMessage("Valid cert, skip : "+strings.Join(c.DNSNames, " ")+" - days: "+strconv.Itoa(days), options.Verbosity, Info)
+				printMessage("Valid cert, skip : "+strings.Join(c.DNSNames, " ")+" - days: "+strconv.Itoa(days), options.Verbosity, Skip)
 				continue
 			} else {
 				Validation++
@@ -117,8 +121,10 @@ func runCheck(domainConfPaths []string, options Options) {
 				}
 
 				if days < 0 {
+					printMessage("\nDomain: "+dnsvalid+" expired: "+strconv.Itoa(days)+" days ago.\n", options.Verbosity, Error)
 					WriteToFile(options.LockFile, "\nDomain: "+dnsvalid+" expired: "+strconv.Itoa(days)+" days ago.\n", options.Verbosity)
 				} else {
+					printMessage("\nDomain: "+dnsvalid+" is going to expire in: "+strconv.Itoa(days)+" days.\n", options.Verbosity, Error)
 					WriteToFile(options.LockFile, "\nDomain: "+dnsvalid+" is going to expire in: "+strconv.Itoa(days)+" days.\n", options.Verbosity)
 				}
 
@@ -295,9 +301,17 @@ func GetOptions() *Options {
 }
 
 func printMessage(message string, verbosity int, messageType int) {
-	colors := map[int]color.Attribute{Info: color.FgGreen, Warning: color.FgHiYellow, Error: color.FgHiRed}
+	colors := map[int]color.Attribute{Info: color.FgGreen, Warning: color.FgHiYellow, Error: color.BlinkSlow, Skip: color.FgBlue, SkipDir: color.FgYellow}
 
 	if verbosity == 2 {
+		color.Set(colors[messageType])
+		fmt.Println(message)
+		color.Unset()
+	} else if verbosity == 2 && messageType > 2 {
+		color.Set(colors[messageType])
+		fmt.Println(message)
+		color.Unset()
+	} else if verbosity == 2 && messageType > 3 {
 		color.Set(colors[messageType])
 		fmt.Println(message)
 		color.Unset()
