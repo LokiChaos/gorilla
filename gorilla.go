@@ -42,6 +42,7 @@ type Options struct {
 	LockFile       string
 	DaysExpiration int
 	Dirs           []string
+	Letsencrypt    bool
 	Verbosity      int
 }
 
@@ -109,6 +110,13 @@ func runCheck(domainConfPaths []string, options Options) {
 			if err != nil {
 				if err != nil {
 					printMessage("The ice breaks! "+cert, options.Verbosity, Error)
+				}
+			}
+
+			if options.Letsencrypt {
+				if !strings.Contains(c.Issuer.CommonName, "Let's Encrypt") {
+					printMessage("\nIssuer: "+c.Issuer.CommonName+" not support acme, skip "+domain, options.Verbosity, Error)
+					continue
 				}
 			}
 
@@ -269,7 +277,7 @@ func difference(a, b []string) []string {
 }
 
 // NewOptions returns a new Options instance.
-func NewOptions(lockfike string, daysexpiration int, dirs string, verbosity int) *Options {
+func NewOptions(lockfike string, daysexpiration int, dirs string, letsencrypt bool, verbosity int) *Options {
 	dirs = strings.Replace(dirs, " ", "", -1)
 	dirs = strings.Replace(dirs, " , ", ",", -1)
 	dirs = strings.Replace(dirs, ", ", ",", -1)
@@ -281,6 +289,7 @@ func NewOptions(lockfike string, daysexpiration int, dirs string, verbosity int)
 		LockFile:       lockfike,
 		DaysExpiration: daysexpiration,
 		Dirs:           dirsarr,
+		Letsencrypt:    letsencrypt,
 		Verbosity:      verbosity,
 	}
 }
@@ -297,12 +306,15 @@ func GetOptions() *Options {
 	var dirs string
 	flag.StringVar(&dirs, "dirs", "/etc/nginx/sites-enabled,/etc/apache2/sites-enabled,/etc/nginx/vhosts.d,/etc/apache2/vhosts.d", "Directories be checked to find certs")
 
+	var letsencrypt bool
+	flag.BoolVar(&letsencrypt, "letsencrypt", true, "Check only if the certificate was issued by letsencrypt")
+
 	var verbosity int
 	flag.IntVar(&verbosity, "verbosity", 3, "0 = only errors, 1 = important things, 2 = all, 3 = none")
 
 	flag.Parse()
 
-	opts := NewOptions(lockfike, daysexpiration, dirs, verbosity)
+	opts := NewOptions(lockfike, daysexpiration, dirs, letsencrypt, verbosity)
 
 	return opts
 }
