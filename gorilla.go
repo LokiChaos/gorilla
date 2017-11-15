@@ -305,7 +305,7 @@ func GetOptions() *Options {
 	flag.IntVar(&daysexpiration, "daysexpiration", 15, "Number of days before warning")
 
 	var dirs string
-	flag.StringVar(&dirs, "dirs", "/etc/nginx/sites-enabled,/etc/apache2/sites-enabled,/etc/nginx/vhosts.d,/etc/apache2/vhosts.d", "Directories be checked to find certs")
+	flag.StringVar(&dirs, "dirs", "/etc/nginx/sites-enabled,/etc/apache2/sites-enabled,/etc/nginx/vhosts.d,/etc/apache2/vhosts.d,/etc/apache2/sites.d,/etc/nginx/sites.d", "Directories be checked to find certs")
 
 	var letsencrypt bool
 	flag.BoolVar(&letsencrypt, "letsencrypt", true, "Check only if the certificate was issued by letsencrypt")
