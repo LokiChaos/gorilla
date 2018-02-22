@@ -2,11 +2,15 @@ package main
 
 import (
 	"bufio"
+	"crypto/sha1"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,6 +28,9 @@ var (
 	Validation = 0
 	// Expired number of certs expired
 	Expired = 0
+
+	// Domains all domains to make an extra check before exit
+	Domains []string
 )
 
 const (
@@ -37,6 +44,29 @@ const (
 	Error = 1 << iota // c == 4
 )
 
+var signatureAlgorithm = [...]string{
+	"UnknownSignatureAlgorithm",
+	"MD2WithRSA",
+	"MD5WithRSA",
+	"SHA1WithRSA",
+	"SHA256WithRSA",
+	"SHA384WithRSA",
+	"SHA512WithRSA",
+	"DSAWithSHA1",
+	"DSAWithSHA256",
+	"ECDSAWithSHA1",
+	"ECDSAWithSHA256",
+	"ECDSAWithSHA384",
+	"ECDSAWithSHA512",
+}
+
+var publicKeyAlgorithm = [...]string{
+	"UnknownPublicKeyAlgorithm",
+	"RSA",
+	"DAS",
+	"ECDSA",
+}
+
 // Options model for commandline arguments
 type Options struct {
 	LockFile       string
@@ -44,6 +74,20 @@ type Options struct {
 	Dirs           []string
 	Letsencrypt    bool
 	Verbosity      int
+}
+
+type SSLCerts struct {
+	SHA1                string
+	SubjectKeyId        string
+	Version             int
+	SignatureAlgorithm  string
+	PublicKeyAlgorithm  string
+	Subject             string
+	DNSNames            []string
+	NotBefore, NotAfter string
+	ExpiresIn           string
+	Issuer              string
+	AuthorityKeyId      string
 }
 
 func main() {
@@ -84,8 +128,83 @@ func main() {
 	}
 }
 
+func ExpiresIn(t time.Time) string {
+	units := [...]struct {
+		suffix string
+		unit   time.Duration
+	}{
+		{"days", 24 * time.Hour},
+		{"hours", time.Hour},
+		{"minutes", time.Minute},
+		{"seconds", time.Second},
+	}
+	d := t.Sub(time.Now())
+	for _, u := range units {
+		if d > u.unit {
+			return fmt.Sprintf("Expires in %d %s", d/u.unit, u.suffix)
+		}
+	}
+	return fmt.Sprintf("Expired on %s", t.Local())
+}
+
+func SHA1Hash(data []byte) string {
+	h := sha1.New()
+	h.Write(data)
+	return fmt.Sprintf("%X", h.Sum(nil))
+}
+
 func exitCode(err *exec.ExitError) int {
 	return err.Sys().(syscall.WaitStatus).ExitStatus()
+}
+
+func checkHost(domainName string, skipVerify bool) ([]SSLCerts, error) {
+
+	//Connect network
+	ipConn, err := net.DialTimeout("tcp", domainName, 10000*time.Millisecond)
+	if err != nil {
+		return nil, err
+	}
+	defer ipConn.Close()
+
+	// Configure tls to look at domainName
+	config := tls.Config{ServerName: domainName,
+		InsecureSkipVerify: skipVerify}
+
+	// Connect to tls
+	conn := tls.Client(ipConn, &config)
+	defer conn.Close()
+
+	// Handshake with TLS to get certs
+	hsErr := conn.Handshake()
+	if hsErr != nil {
+		return nil, hsErr
+	}
+
+	certs := conn.ConnectionState().PeerCertificates
+
+	if certs == nil || len(certs) < 1 {
+		return nil, errors.New("Could not get server's certificate from the TLS connection.")
+	}
+
+	sslcerts := make([]SSLCerts, len(certs))
+
+	for i, cert := range certs {
+		s := SSLCerts{SHA1: SHA1Hash(cert.Raw), SubjectKeyId: fmt.Sprintf("%X", cert.SubjectKeyId),
+			Version: cert.Version, SignatureAlgorithm: signatureAlgorithm[cert.SignatureAlgorithm],
+			PublicKeyAlgorithm: publicKeyAlgorithm[cert.PublicKeyAlgorithm],
+			Subject:            cert.Subject.CommonName,
+			DNSNames:           cert.DNSNames,
+			NotBefore:          cert.NotBefore.Local().String(),
+			NotAfter:           cert.NotAfter.Local().String(),
+			ExpiresIn:          ExpiresIn(cert.NotAfter.Local()),
+			Issuer:             cert.Issuer.CommonName,
+			AuthorityKeyId:     fmt.Sprintf("%X", cert.AuthorityKeyId),
+		}
+		sslcerts[i] = s
+
+	}
+
+	return sslcerts, nil
 }
 
 func runCheck(domainConfPaths []string, options Options) {
@@ -112,13 +231,16 @@ func runCheck(domainConfPaths []string, options Options) {
 					printMessage("The ice breaks! "+cert, options.Verbosity, Error)
 				}
 			}
-
 			// Validation if the certificate was issued by LE
 			if options.Letsencrypt {
 				if !strings.Contains(c.Issuer.CommonName, "Let's Encrypt") {
 					printMessage("\nIssuer: "+c.Issuer.CommonName+" not support acme, skip "+domain, options.Verbosity, Error)
 					continue
 				}
+			}
+
+			for _, dom := range c.DNSNames {
+				Domains = append(Domains, dom)
 			}
 
 			days := int(c.NotAfter.Sub(time.Now()).Hours() / 24)
@@ -147,6 +269,35 @@ func runCheck(domainConfPaths []string, options Options) {
 
 		}
 
+	}
+
+	// Make this extra check only if the certs are all ok, otherwise not necessary
+	if Validation > 0 || Expired > 0 {
+		for _, can := range Domains {
+			//var ce string
+			var err error
+			var certs []SSLCerts
+			// Catch any misconfigurations
+			certs, err = checkHost(can+":443", true)
+			if err != nil {
+				Validation++
+				printMessage("\nDomain: "+can+":443 can't be verified\n", options.Verbosity, Error)
+				WriteToFile(options.LockFile, "\nDomain: "+can+":443 can't be verified, please try telnet "+can+":443\n", options.Verbosity)
+			}
+			if len(certs) > 0 {
+				exp, _ := strconv.Atoi(certs[0].ExpiresIn)
+				if exp > options.DaysExpiration {
+					if exp < 0 {
+						Expired++
+						printMessage("\nDomain: "+can+" expired: "+certs[0].ExpiresIn+" days ago\n", options.Verbosity, Error)
+						WriteToFile(options.LockFile, "\nDomain: "+can+" expired: "+certs[0].ExpiresIn+" days ago\n", options.Verbosity)
+					} else {
+						printMessage("\nDomain: "+can+" is going to expire in: "+certs[0].ExpiresIn+" days.\n", options.Verbosity, Error)
+						WriteToFile(options.LockFile, "\nDomain: "+can+" is going to expire in: "+certs[0].ExpiresIn+" days\n", options.Verbosity)
+					}
+				}
+			}
+		}
 	}
 
 }
