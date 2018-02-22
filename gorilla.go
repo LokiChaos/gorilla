@@ -272,7 +272,7 @@ func runCheck(domainConfPaths []string, options Options) {
 	}
 
 	// Make this extra check only if the certs are all ok, otherwise not necessary
-	if Validation > 0 || Expired > 0 {
+	if Validation == 0 && Expired == 0 {
 		for _, can := range Domains {
 			//var ce string
 			var err error
