@@ -282,7 +282,7 @@ func runCheck(domainConfPaths []string, options Options) {
 			if err != nil {
 				Validation++
 				printMessage("\nDomain: "+can+":443 can't be verified\n", options.Verbosity, Error)
-				WriteToFile(options.LockFile, "\nDomain: "+can+":443 can't be verified, please try telnet "+can+":443\n", options.Verbosity)
+				WriteToFile(options.LockFile, "\nDomain: "+can+":443 can't be verified, please try telnet "+can+" 443\n", options.Verbosity)
 			}
 			if len(certs) > 0 {
 				exp, _ := strconv.Atoi(certs[0].ExpiresIn)
