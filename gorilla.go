@@ -271,8 +271,10 @@ func runCheck(domainConfPaths []string, options Options) {
 
 	}
 
-	// Make this extra check only if the certs are all ok, otherwise not necessary
 	if Validation == 0 && Expired == 0 {
+		// Make this extra check only if the certs are all ok, otherwise not necessary
+		printMessage("Running the second check (WEB CHECK) \n", options.Verbosity, Info)
+
 		for _, can := range Domains {
 			//var ce string
 			var err error
@@ -298,6 +300,9 @@ func runCheck(domainConfPaths []string, options Options) {
 				}
 			}
 		}
+	} else {
+		// Make this extra check only if the certs are all ok, otherwise not necessary
+		printMessage("Skip WEB CHECK \n", options.Verbosity, Info)
 	}
 
 }
