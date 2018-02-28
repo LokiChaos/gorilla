@@ -74,6 +74,7 @@ type Options struct {
 	Dirs           []string
 	Letsencrypt    bool
 	Verbosity      int
+	Cooldown       string
 }
 
 type SSLCerts struct {
@@ -271,7 +272,7 @@ func runCheck(domainConfPaths []string, options Options) {
 
 	}
 
-	if Validation == 0 && Expired == 0 {
+	if Validation == 0 && Expired == 0 && checkLockTime(options.Cooldown) {
 		// Make this extra check only if the certs are all ok, otherwise not necessary
 		printMessage("Running the second check (WEB CHECK) \n", options.Verbosity, Info)
 
@@ -300,11 +301,17 @@ func runCheck(domainConfPaths []string, options Options) {
 				}
 			}
 		}
+		// Cache this check's values;
+		os.Remove(options.Cooldown)
+		WriteToFile(options.Cooldown, strconv.Itoa(Expired)+"\n", options.Verbosity)
+		WriteToFile(options.Cooldown, strconv.Itoa(Validation)+"\n", options.Verbosity)
+
 	} else {
 		// Make this extra check only if the certs are all ok, otherwise not necessary
 		printMessage("Skip WEB CHECK \n", options.Verbosity, Info)
+		// Skipped check, grab the cached values from the cooldown lock file
+		Expired, Validation = getLock(options.Cooldown)
 	}
-
 }
 
 // ListFiles give a Array with a list of files in a given path
@@ -434,7 +441,7 @@ func difference(a, b []string) []string {
 }
 
 // NewOptions returns a new Options instance.
-func NewOptions(lockfike string, daysexpiration int, dirs string, letsencrypt bool, verbosity int) *Options {
+func NewOptions(lockfike string, daysexpiration int, dirs string, letsencrypt bool, verbosity int, cooldown string) *Options {
 	dirs = strings.Replace(dirs, " ", "", -1)
 	dirs = strings.Replace(dirs, " , ", ",", -1)
 	dirs = strings.Replace(dirs, ", ", ",", -1)
@@ -448,6 +455,7 @@ func NewOptions(lockfike string, daysexpiration int, dirs string, letsencrypt bo
 		Dirs:           dirsarr,
 		Letsencrypt:    letsencrypt,
 		Verbosity:      verbosity,
+		Cooldown:       cooldown,
 	}
 }
 
@@ -469,9 +477,12 @@ func GetOptions() *Options {
 	var verbosity int
 	flag.IntVar(&verbosity, "verbosity", 3, "0 = only errors, 1 = important things, 2 = all, 3 = none")
 
+	var cooldown string
+	flag.StringVar(&cooldown, "cooldown", "/tmp/gorilla.lock", "Cooldown file lock location")
+
 	flag.Parse()
 
-	opts := NewOptions(lockfike, daysexpiration, dirs, letsencrypt, verbosity)
+	opts := NewOptions(lockfike, daysexpiration, dirs, letsencrypt, verbosity, cooldown)
 
 	return opts
 }
@@ -500,4 +511,53 @@ func checkErr(err error) {
 		panic(err)
 		color.Unset()
 	}
+}
+
+// Check if lock file exists and return true it should run check
+func checkLockTime(filePath string) bool {
+	info, err := os.Stat(filePath)
+
+	if os.IsNotExist(err) {
+		return true
+	} else if err != nil {
+		panic(err)
+		return true
+	} else if time.Now().Unix()-info.ModTime().Unix() > 3600 {
+		return true
+	}
+
+	return false
+}
+
+func getLock(filePath string) (int, int) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	line := 0
+
+	ex, va := 0, 0
+
+	for scanner.Scan() {
+		if line > 0 {
+			ex, err = strconv.Atoi(scanner.Text())
+			if err != nil {
+				panic(err)
+				ex = 10000
+			}
+		} else {
+			va, err = strconv.Atoi(scanner.Text())
+			if err != nil {
+				panic(err)
+				va = 10000
+			}
+		}
+		line++
+	}
+
+	return ex, va
 }
