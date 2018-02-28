@@ -306,10 +306,12 @@ func runCheck(domainConfPaths []string, options Options) {
 		WriteToFile(options.Cooldown, strconv.Itoa(Expired)+"\n", options.Verbosity)
 		WriteToFile(options.Cooldown, strconv.Itoa(Validation)+"\n", options.Verbosity)
 
-	} else {
+	} else if Validation != 0 || Expired != 0 {
 		// Make this extra check only if the certs are all ok, otherwise not necessary
 		printMessage("Skip WEB CHECK \n", options.Verbosity, Info)
+	} else {
 		// Skipped check, grab the cached values from the cooldown lock file
+		printMessage("Skip WEB CHECK - Using Cached Values \n", options.Verbosity, Info)
 		Expired, Validation = getLock(options.Cooldown)
 	}
 }
@@ -520,7 +522,6 @@ func checkLockTime(filePath string) bool {
 	if os.IsNotExist(err) {
 		return true
 	} else if err != nil {
-		panic(err)
 		return true
 	} else if time.Now().Unix()-info.ModTime().Unix() > 3600 {
 		return true
@@ -532,7 +533,7 @@ func checkLockTime(filePath string) bool {
 func getLock(filePath string) (int, int) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		panic(err)
+		return 0, 0
 	}
 	defer file.Close()
 
